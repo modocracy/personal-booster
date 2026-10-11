@@ -24,10 +24,10 @@
 ## 설치
 
 1. [Releases](../../releases)에서 `Personal-Booster-v<버전>.zip`을 받습니다. 아직 올라온 게 없다면 [직접 빌드](docs/DEVELOPMENT.md#build)할 수 있습니다.
-2. Arsenal이나 HD2MM에서 zip을 가져와 켜고, Purge → Deploy를 누릅니다.
+2. Arsenal이나 HD2MM에서 zip을 가져와 켜고, Purge → Deploy를 누릅니다. (제작자의 모드 로더 [Modocracy](https://github.com/modocracy/modocracy/releases/latest)를 써도 됩니다.)
 3. Booster Buster와 함께 켜지 마세요. 함께 켜져 있으면 Personal Booster가 스스로 멈춥니다.
 
-**모드 로더가 필요 없고**, 옵션 → MODS 메뉴도 들어 있습니다.
+**Bingus Shared Loader 같은 별도 로더는 필요 없고**, 옵션 → MODS 메뉴도 들어 있습니다.
 
 **Bingus Shared Loader**를 함께 쓴다면 로더 안내대로 로더를 목록 **맨 아래**에 두세요. 그러면 로더가 Personal Booster를 실행하고, Vanilla Plus Megapack이 있으면 그쪽 메뉴를 씁니다.
 

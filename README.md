@@ -24,10 +24,10 @@ Unofficial. Not affiliated with Arrowhead Game Studios. Use at your own risk.
 ## Install
 
 1. Download `Personal-Booster-v<version>.zip` from [Releases](../../releases). If none is listed yet, [build it from source](docs/DEVELOPMENT.md#build).
-2. Import it in Arsenal or HD2MM, enable it, then Purge and Deploy.
+2. Import it in Arsenal or HD2MM, enable it, then Purge and Deploy. (You can also use the author's mod loader [Modocracy](https://github.com/modocracy/modocracy/releases/latest).)
 3. Do not enable Booster Buster at the same time. Personal Booster stops if it sees it.
 
-**No mod loader is needed**, and the Options > MODS menu is included.
+**No separate loader such as Bingus Shared Loader is needed**, and the Options > MODS menu is included.
 
 If you also use **Bingus Shared Loader**, keep the loader **last** in the load order, as its own instructions say. The loader then starts Personal Booster, and if Vanilla Plus Megapack is installed, its menu is used.
 
