@@ -65,6 +65,22 @@ def main():
     assert (check.mode, check.dss, check.squad) == (0x10000 + 7 + 0x100, 0x10000 + 0x0E - 0x20, 0x10000 + 0x3F + 0x10)
     assert (check.dss_count, check.players, check.slots, check.stride) == (0x10, 0x8E8, 0xA8C, 0x40)
 
+    # The bundled Mod Options Menu starts only when no other copy runs.
+    for running, expected_requires, expected_status in [
+        (False, ["mods/modocracy/mod_options_menu"], "bundled"),
+        (True, [], "already running"),
+    ]:
+        lua2 = LuaRuntime()
+        lua2.execute("""
+            local running = ...
+            requires = {}
+            require = function(name) requires[#requires + 1] = name; ModOptionsMenu = {} end
+            if running then ModOptionsMenu = {} end
+        """, running)
+        lua2.eval("loadstring")(SOURCE, "=personal_booster")()
+        assert list(lua2.globals().requires.values()) == expected_requires, running
+        assert lua2.globals().PersonalBooster.menu_start == expected_status
+
     # Without the game: the first update stops cleanly and says why.
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
         lua, state = load()

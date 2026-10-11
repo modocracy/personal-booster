@@ -154,7 +154,7 @@ def main():
         game = Game(folder)
         expect(game, DEFAULTS)
         assert order_file(folder) == DEFAULTS
-        assert "picker ready in Options > MODS, picked 4/4" in game.log()[0], game.log()
+        assert game.log()[:2] == ["Mod Options Menu: already running", "picker ready in Options > MODS, picked 4/4: " + ", ".join(DEFAULTS)], game.log()
         assert game.api.label(RANK + U) == "UAV Recon Booster"
         assert game.api.label(COUNT) == "Picked boosters"
         assert "One booster per player is active" in game.api.description(RANK + U)

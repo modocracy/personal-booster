@@ -1,7 +1,9 @@
 """Build dist/Personal-Booster-v<version>.zip for Arsenal / HD2MM.
 
-The archive holds two Lua resources:
+The archive holds three Lua resources:
   mods/modocracy/personal_booster       the mod (src/personal_booster.lua)
+  mods/modocracy/mod_options_menu       Mod Options Menu (third_party/), started by the mod
+                                        when no other copy runs, for the Options > MODS picker
   core/wwise/lua/wwise_flow_callbacks   a bridge that runs the game's original Wwise
                                         callbacks, then starts the mod, so no mod loader
                                         is needed
@@ -20,18 +22,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import patch  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 GUID = "a4402f3c-f59a-4ea6-bade-151439092102"
 ARCHIVE = "9ba626afa44a3aa3.patch_0"
 MOD_RESOURCE = "mods/modocracy/personal_booster"
+MENU_RESOURCE = "mods/modocracy/mod_options_menu"
 BRIDGE_RESOURCE = "core/wwise/lua/wwise_flow_callbacks"
 CALLBACKS = os.path.join(ROOT, "build", "wwise_flow_callbacks.lua.main")
 HEADER = re.compile(rb"^-- HD2-Addon: (mods/[A-Za-z0-9_]+/[A-Za-z0-9_/]+)\n")
 
 DESCRIPTION = (
     "One booster per player, as in the game, but you pick them all: with N players, your picks 1-N "
-    "apply to you and teammates' boosters are ignored on your PC. Pick in Options > MODS (needs Mod "
-    "Options Menu) or in %LOCALAPPDATA%\\PersonalBooster\\PersonalBooster.order. Needs no mod loader; "
+    "apply to you and teammates' boosters are ignored on your PC. Pick in Options > MODS (Mod Options "
+    "Menu is included). Needs no mod loader; "
     "with Bingus Shared Loader, keep the loader last. Do not use with Booster Buster."
 )
 
@@ -74,6 +77,8 @@ def main():
         print("Missing " + CALLBACKS + ": run python tools/extract_callbacks.py first.")
         return 1
     bridge = bridge_source(open(CALLBACKS, "rb").read())
+    menu = open(os.path.join(ROOT, "third_party", "mod_options_menu.lua"), "rb").read().replace(b"\r\n", b"\n")
+    assert not menu.startswith(b"-- HD2-Addon:"), "the bundled menu must not declare itself to loaders"
 
     manifest = {
         "Version": 1,
@@ -93,7 +98,8 @@ def main():
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("manifest.json", json.dumps(manifest, indent=2) + "\n")
         z.write(os.path.join(ROOT, "assets", "icon.png"), "icon.png")
-        z.writestr("data/" + ARCHIVE, patch.build_many([(MOD_RESOURCE, source), (BRIDGE_RESOURCE, bridge)]))
+        z.writestr("data/" + ARCHIVE, patch.build_many(
+            [(MOD_RESOURCE, source), (MENU_RESOURCE, menu), (BRIDGE_RESOURCE, bridge)]))
         z.writestr("data/" + ARCHIVE + ".gpu_resources", b"")
         z.writestr("data/" + ARCHIVE + ".stream", b"")
     print(out)

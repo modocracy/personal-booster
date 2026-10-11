@@ -189,7 +189,7 @@ end
 if rawget(_G, 'PersonalBooster') then return end
 local picks = {}
 for i, name in ipairs(DEFAULT_PICKS) do picks[i] = name end
-local state = {version = '1.0.0', status = 'starting', picks = picks, plan = plan, differs = differs,
+local state = {version = '1.1.0', status = 'starting', picks = picks, plan = plan, differs = differs,
                placed = placed, parse_pattern = parse_pattern, decode_check = decode_check}
 _G['PersonalBooster'] = state
 
@@ -308,6 +308,17 @@ end
 -- place (OFF, 1-4). Setting a place puts the booster there; the others move down.
 -- Applied edits are handled in this mod's next update, after the menu has applied
 -- all of them, and the rows then show the result.
+
+-- Options > MODS comes from Mod Options Menu. Vanilla Plus Megapack's copy starts
+-- before this mod when it is installed (Bingus Shared Loader starts the pack first);
+-- otherwise the copy bundled with this mod starts here.
+local BUNDLED_MENU = 'mods/modocracy/mod_options_menu'
+if not rawget(_G, 'ModOptionsMenu') then
+    local ok, err = pcall(require, BUNDLED_MENU)
+    state.menu_start = ok and 'bundled' or ('bundled copy not started: ' .. tostring(err))
+else
+    state.menu_start = 'already running'
+end
 
 local COUNT_OPTION = 'personal_booster.count'
 local PLACE_PREFIX = 'personal_booster.place.'
@@ -695,6 +706,10 @@ local function now()
 end
 
 local function tick()
+    if not menu.reported then
+        menu.reported = true
+        log('Mod Options Menu: ' .. state.menu_start)
+    end
     if not menu.api and not menu.given_up then start_menu() end
     if menu.api and #menu.edits > 0 then apply_edits() end
     if stopped then return end
