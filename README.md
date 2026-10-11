@@ -90,6 +90,10 @@ With version 1.1.0 (2026-10-11):
 - Solo, only pick 1 is active.
 - Without any mod loader it starts by itself, game sound works normally, and the included Options > MODS menu works.
 
+With version 1.2.0 in someone else's lobby, as a guest (2026-10-11):
+
+- Vitality Enhancement, Stamina Enhancement, Muscle Enhancement, Dead Sprint, Experimental Infusion, Motivational Shocks and Integrated Extinguishers all take effect for you.
+
 With earlier versions that write the same squad slots (2026-10-11):
 
 - A booster written into a teammate's slot takes effect for you.
