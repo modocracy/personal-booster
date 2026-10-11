@@ -1,4 +1,8 @@
+<p align="center"><img src="assets/icon.png" width="128" alt="Personal Booster icon"></p>
+
 # Personal Booster
+
+**[한국어](README.ko.md)** · [Development](docs/DEVELOPMENT.md)
 
 A Helldivers 2 mod that keeps the game's rule of **one booster per player**, but lets you choose all of them.
 
@@ -11,88 +15,109 @@ With N players in the squad, your picks 1 to N are active for you, and the boost
 | 3 players | picks 1-3 |
 | 4 players | picks 1-4 |
 
+When someone joins or leaves, the change follows within about 2 seconds.
+
 Unofficial. Not affiliated with Arrowhead Game Studios. Use at your own risk.
 
 ## Install
 
-1. Download `Personal-Booster-v<version>.zip` from [Releases](../../releases).
+1. Download `Personal-Booster-v<version>.zip` from [Releases](../../releases). If none is listed yet, [build it from source](docs/DEVELOPMENT.md#build).
 2. Import it in Arsenal or HD2MM, enable it, then Purge and Deploy.
-3. Do not enable Booster Buster at the same time.
+3. Do not enable Booster Buster at the same time. Personal Booster stops if it sees it.
 
-No mod loader is needed. If you also use **Bingus Shared Loader**, keep the loader **last** in the load order as its instructions say: it then starts Personal Booster itself, and everything else works as before.
+**No mod loader is needed**, and the Options > MODS menu is included.
+
+If you also use **Bingus Shared Loader**, keep the loader **last** in the load order, as its own instructions say. The loader then starts Personal Booster, and if Vanilla Plus Megapack is installed, its menu is used.
 
 Supported game build: Steam build 25480438 (EXE 1.8.46015.0).
 
 ## Picking boosters
 
-- **In the game**: Options > MODS > PERSONAL BOOSTER. Give each booster a place: OFF or 1-4. Setting a place puts the booster there and moves the others down. After Apply, the places and the count (`0/4`-`4/4`) update at once. The MODS tab comes from Mod Options Menu, which is included: if Vanilla Plus Megapack already runs its own copy, that one is used.
-- **Or in a file**: `%LOCALAPPDATA%\PersonalBooster\PersonalBooster.order`, one booster per line, first line first. Without the menu, the mod rereads it every few seconds.
+### In the game
 
-Booster names for the order file: `HellpodSpaceOptimization`, `Vitality`, `Stamina`, `MuscleEnhancement`, `UAVRecon`, `IncreasedReinforcementBudget`, `FlexibleReinforcementBudget`, `LocalizationConfusion`, `FastExtraction`, `SlowStunResistance`, `CombatDrugs`, `FieryDrop`, `DoubleSampleChance`, `DeathMarch`, `BigEnemiesDropSamples`, `ShockPods`, `SmokePods`, `FireExtinguish`.
+Options > MODS > PERSONAL BOOSTER.
 
-The first time, Hellpod Space Optimization, Vitality, Stamina and Muscle Enhancement are picked in that order.
+- The first row, **Picked boosters**, shows how many are picked (`0/4` to `4/4`). It only shows the count: changing it does nothing.
+- Every booster row has a place: **OFF**, **1**, **2**, **3** or **4**.
+  - Setting a place puts the booster there, and the boosters from that place on move down one. One pushed past 4 is removed.
+  - A place past the last pick puts the booster at the end. With 2 picked, choosing 4 makes it pick 3.
+  - OFF removes it, and the boosters after it move up.
+- After **Apply**, the places and the count update at once, and the game follows within about 2 seconds.
+
+### In a file
+
+`%LOCALAPPDATA%\PersonalBooster\PersonalBooster.order` holds the picks, one per line, first line first. The menu keeps it up to date.
+
+- With the menu, the file is read when the game starts. Use the menu to change picks while playing.
+- Without the menu (if it could not start), the file is the picker: the mod rereads it about every 10 seconds.
+
+Unknown names and repeats are skipped, and only the first 4 are used. The first time, the picks are Hellpod Space Optimization, Vitality, Stamina and Muscle Enhancement.
+
+| File name | Booster |
+|---|---|
+| `HellpodSpaceOptimization` | Hellpod Space Optimization |
+| `Vitality` | Vitality Enhancement |
+| `Stamina` | Stamina Enhancement |
+| `MuscleEnhancement` | Muscle Enhancement |
+| `UAVRecon` | UAV Recon Booster |
+| `IncreasedReinforcementBudget` | Increased Reinforcement Budget |
+| `FlexibleReinforcementBudget` | Flexible Reinforcement Budget |
+| `LocalizationConfusion` | Localization Confusion |
+| `FastExtraction` | Expert Extraction Pilot |
+| `SlowStunResistance` | Motivational Shocks |
+| `CombatDrugs` | Experimental Infusion |
+| `FieryDrop` | Firebomb Hellpods |
+| `DoubleSampleChance` | Sample Scanner |
+| `DeathMarch` | Dead Sprint |
+| `BigEnemiesDropSamples` | Sample Extricator |
+| `ShockPods` | Stun Pods |
+| `SmokePods` | Concealed Insertion |
+| `FireExtinguish` | Integrated Extinguishers |
 
 ## How it works
 
-The game decides whether a booster is active with one small function. It looks through the boosters the game grants (the DSS list), then through each squad member's equipped booster.
+The game decides whether a booster is active with one small function, which looks through the boosters the DSS grants and then through each squad member's equipped booster. Every 2 seconds Personal Booster checks the squad's booster slots **in this PC's memory** and, when they differ from your picks, writes your picks into them, one per player. Game code is not changed and the DSS boosters are not touched. If anything in memory does not look the way the mod expects, it stops before writing anything and says why in the log.
 
-Personal Booster finds that function in game memory by its code pattern and reads from its instructions where the squad record is, where the booster slots are and how far apart they are. It finds the game's booster name table by following it from `None` to `Count`. Every 2 seconds it writes your picks into the squad's booster slots, one per player, **in this PC's memory only**. Game code is not changed and the DSS list is not written. If anything does not match what the mod expects, it stops before writing and says why in the log.
+Details: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-The archive holds three resources:
+## Seen in game
 
-- `mods/modocracy/personal_booster`: the mod. Bingus Shared Loader finds it by its first line.
-- `mods/modocracy/mod_options_menu`: Mod Options Menu (`third_party/`), started by the mod when no other copy runs.
-- `core/wwise/lua/wwise_flow_callbacks`: a bridge used when no loader is installed. It runs the game's original Wwise callbacks, then starts the mod. The release ZIP embeds those original callbacks from the supported game build. They are not part of this repository.
+With version 1.1.0 (2026-10-11):
 
-Seen in game (2026-10-11): boosters in teammates' slots take effect for you; Firebomb Hellpods sets fire only at your own hellpod, damages enemies, and also burns teammates when another player hosts. Effects decided by the host (reinforcement budget, Localization Confusion, extraction, samples) follow the host's game.
+- It finds the booster check and the booster name table in the game (20 boosters).
+- Solo, only pick 1 is active.
+- Without any mod loader it starts by itself, game sound works normally, and the included Options > MODS menu works.
+
+With earlier versions that write the same squad slots (2026-10-11):
+
+- A booster written into a teammate's slot takes effect for you.
+- Firebomb Hellpods sets fire only where your own hellpod lands, not your teammates'. The fire damages enemies in solo play, and in someone else's lobby it also burns teammates, so it exists in their game too.
+
+Not tested: boosters the host decides for the whole mission (reinforcement budget, Localization Confusion, extraction, samples) are expected to follow the host's game, so your picks of those may only work when you host.
 
 ## Log
 
-`%LOCALAPPDATA%\PersonalBooster\PersonalBooster.log`, started afresh each session.
+`%LOCALAPPDATA%\PersonalBooster\PersonalBooster.log`, started afresh each time the game starts.
 
-- `Mod Options Menu: ...`: `bundled` (this mod started its copy) or `already running` (another copy)
-- `ready: ...`: the booster check and name table were found
-- `picked n/4: ...`: picks changed
-- `active: ... (N players)`: your boosters now active, and any granted by the game
-- `write #N: ...`: slots written, with what they held before
-- `stopped: ...`: a safety check stopped the mod, with the reason
+| Line | Meaning |
+|---|---|
+| `Mod Options Menu: bundled` | The menu included in this mod started |
+| `Mod Options Menu: already running` | Another copy (Vanilla Plus Megapack) is used |
+| `Mod Options Menu: bundled copy not started: ...` | No menu; use the order file |
+| `picker ready in Options > MODS, picked n/4: ...` | The menu rows are ready |
+| `picked n/4: ...` | Picks changed |
+| `ready: booster check found, ...` | The booster check and name table were found |
+| `waiting for the squad` / `squad found, ...` | Loading; normal on the ship and between missions |
+| `active: ... (N players)` | Your boosters now active, and any the game grants |
+| `write #N: ...` | Slots written, with what they held before |
+| `stopped: ...` | A safety check stopped the mod, with the reason |
 
-## Build from source
+## After a game update
 
-Needs Python 3.10+, and `lupa` and `Pillow` for the tests and the icon.
+The mod looks for the game's code and data by their shape, so a game update can make it stop with a `stopped:` line; it then writes nothing.
 
-```
-python tools/extract_callbacks.py   # finds the original Wwise callbacks in your install
-python tools/build.py               # writes dist/Personal-Booster-v<version>.zip
-```
-
-`extract_callbacks.py` looks through the patch archives in your game's `data` folder for an embedded copy of the original callbacks (for example the one inside Bingus Shared Loader) and checks it against the supported build's SHA-256. It changes nothing in the game folder.
-
-Tests:
-
-```
-python tests/test_lua.py      # compiles with LuaJIT 2.1; planning, patterns, check decoding
-python tests/test_memory.py   # a stand-in game.dll in memory: finding, reading and writing (Windows)
-python tests/test_picker.py   # the Options > MODS picker with a stand-in Mod Options Menu
-python tests/test_bridge.py   # the Wwise callbacks bridge
-python tests/test_patch.py    # the archive writer (needs published mods unpacked in extracted/)
-```
-
-`tools/make_icon.py` draws `assets/icon.png`.
+The included Wwise bridge, used when no mod loader is installed, carries the game's original Wwise callbacks from the supported build. If an update changes those callbacks, sound may misbehave until Personal Booster is updated. **After a game update, disable Personal Booster until a release for the new build is out**, or play with Bingus Shared Loader kept last.
 
 ## License
 
-Zero-Clause BSD (0BSD), see [LICENSE](LICENSE). The game's original Wwise callbacks embedded in release ZIPs belong to their owners and are not covered by this license.
-
----
-
-## 한국어
-
-게임 규칙대로 **참가 인원 1명당 부스터 1개**를 쓰되, 그 부스터를 전부 내가 고르는 헬다이버즈2 모드입니다.
-
-- 인원이 N명이면 내 순서 1~N번이 나에게 적용되고, 팀원이 고른 부스터는 내 게임에서 무시됩니다. 팀원은 각자 자기 부스터를 그대로 씁니다.
-- 함대 강화(DSS)로 게임이 주는 부스터는 그대로 받습니다.
-- **모드 로더가 필요 없습니다.** Bingus Shared Loader를 함께 쓴다면 로더를 목록 **맨 아래**에 두세요.
-- 부스터 고르기: 옵션 → MODS → PERSONAL BOOSTER에서 부스터마다 순서(끄기, 1~4)를 정합니다. 메뉴(Mod Options Menu)가 모드에 들어 있어서 로더가 없어도 됩니다. `%LOCALAPPDATA%\PersonalBooster\PersonalBooster.order` 파일에 한 줄에 하나씩 적어도 됩니다.
-- 내 PC 메모리의 분대원 부스터 칸만 바꾸고, 게임 코드는 바꾸지 않습니다. 예상과 다르면 아무것도 쓰지 않고 멈춥니다.
-- 비공식 모드입니다. 사용에 따른 책임은 사용자에게 있습니다.
+Zero-Clause BSD (0BSD), see [LICENSE](LICENSE). Release ZIPs also carry the game's original Wwise callbacks (about 10 KB of Lua bytecode that tells the sound engine what to play, no sound files). They belong to their owners and are not covered by this license.
