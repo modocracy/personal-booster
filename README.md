@@ -6,7 +6,7 @@
 
 A Helldivers 2 mod that keeps the game's rule of **one booster per player**, but lets you choose all of them.
 
-With N players in the squad, your picks 1 to N are active for you, and the boosters your teammates brought are not. Teammates keep their own boosters on their own PCs. Boosters the game grants through the DSS are left as they are.
+With N players in the squad, your picks 1 to N are active for you, and the boosters your teammates brought are not. Teammates keep their own boosters on their own PCs. In their games, you bring the booster **equipped in your in-game loadout**, not your picks, because the mod changes only your PC's memory. Boosters the game grants through the DSS are left as they are.
 
 Boosters the host's game applies to the whole squad are never replaced: Increased Reinforcement Budget, Flexible Reinforcement Budget, Localization Confusion, Expert Extraction Pilot, Sample Scanner and Sample Extricator. If a teammate brings one, its slot is left as it is, so it keeps working for everyone when you host, and your picks fill the other slots.
 
@@ -103,6 +103,8 @@ With earlier versions that write the same squad slots (2026-10-11):
 - Not tested yet: whether a guest's Firebomb Hellpods sets fire at your hellpod when you did not pick it. Hellpod landing boosters (Firebomb Hellpods, Stun Pods, Concealed Insertion) can therefore reach the whole squad, not only you.
 
 Not tested: the host-decided boosters listed above are expected to follow the host's game. Your picks of those likely work only when you host, and a teammate's keeps working for the squad because its slot is left alone.
+
+Not tested: that teammates' games apply the booster equipped in your loadout. The mod does not touch their PCs, so they should, but no teammate has checked it.
 
 ## Log
 
