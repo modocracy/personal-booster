@@ -33,7 +33,7 @@ local ORDER_EVERY = 5 -- memory checks between rereads of the order file without
 -- Internal name, English name, Korean name, English effect, Korean effect.
 local BOOSTERS = {
     {'HellpodSpaceOptimization', 'Hellpod Space Optimization', '헬포드 공간 최적화',
-     'Full magazines, grenades and stims on drop and reinforce.', '투하·증원 때 탄창, 수류탄, 주사기가 가득 찹니다.'},
+     'Full magazines, grenades and stims on drop and reinforce.', '투하하거나 증원될 때 탄창, 수류탄, 주사기가 가득 채워집니다.'},
     {'Vitality', 'Vitality Enhancement', '체력 강화', 'Less damage taken.', '받는 피해가 줄어듭니다.'},
     {'Stamina', 'Stamina Enhancement', '스태미나 강화', 'More stamina and faster recovery.',
      '스태미나가 늘고 더 빨리 회복됩니다.'},
@@ -189,7 +189,7 @@ end
 if rawget(_G, 'PersonalBooster') then return end
 local picks = {}
 for i, name in ipairs(DEFAULT_PICKS) do picks[i] = name end
-local state = {version = '1.1.0', status = 'starting', picks = picks, plan = plan, differs = differs,
+local state = {version = '1.1.1', status = 'starting', picks = picks, plan = plan, differs = differs,
                placed = placed, parse_pattern = parse_pattern, decode_check = decode_check}
 _G['PersonalBooster'] = state
 
