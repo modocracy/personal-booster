@@ -97,7 +97,10 @@ With version 1.2.0 in someone else's lobby, as a guest (2026-10-11):
 With earlier versions that write the same squad slots (2026-10-11):
 
 - A booster written into a teammate's slot takes effect for you.
-- Firebomb Hellpods sets fire only where your own hellpod lands, not your teammates'. The fire damages enemies in solo play, and in someone else's lobby it also burns teammates, so it exists in their game too.
+- Firebomb Hellpods damages enemies in solo play.
+- Hosting, with Firebomb Hellpods only in your picks: teammates' hellpods also set fire when they land, not only yours.
+- In someone else's lobby, the fire from your hellpod also burns teammates, so it exists in their game too.
+- Not tested yet: whether a guest's Firebomb Hellpods sets fire at your hellpod when you did not pick it. Hellpod landing boosters (Firebomb Hellpods, Stun Pods, Concealed Insertion) can therefore reach the whole squad, not only you.
 
 Not tested: the host-decided boosters listed above are expected to follow the host's game. Your picks of those likely work only when you host, and a teammate's keeps working for the squad because its slot is left alone.
 
