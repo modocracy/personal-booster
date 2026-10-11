@@ -34,6 +34,7 @@ local HOST_DECIDED = {'IncreasedReinforcementBudget', 'FlexibleReinforcementBudg
                       'FastExtraction', 'DoubleSampleChance', 'BigEnemiesDropSamples'}
 local CHECK_EVERY = 2000 -- milliseconds between memory checks
 local ORDER_EVERY = 5 -- memory checks between rereads of the order file without the menu
+local FRAME_BYTES = 0x200000 -- bytes of game.dll searched per frame while looking for the check
 
 -- Internal name, English name, Korean name, English effect, Korean effect.
 local BOOSTERS = {
@@ -209,7 +210,7 @@ end
 if rawget(_G, 'PersonalBooster') then return end
 local picks = {}
 for i, name in ipairs(DEFAULT_PICKS) do picks[i] = name end
-local state = {version = '1.2.0', status = 'starting', picks = picks, plan = plan, differs = differs,
+local state = {version = '1.2.1', status = 'starting', picks = picks, plan = plan, differs = differs,
                placed = placed, parse_pattern = parse_pattern, decode_check = decode_check}
 _G['PersonalBooster'] = state
 
@@ -503,6 +504,17 @@ local function write_u32(address, value)
     end
 end
 
+-- While the finder coroutine runs, the scan hands the frame back every FRAME_BYTES.
+local finding, scanned = false, 0
+
+local function pace(size)
+    scanned = scanned + size
+    if finding and scanned >= FRAME_BYTES then
+        scanned = 0
+        coroutine.yield()
+    end
+end
+
 -- Calls visit(address) for every place in [from, to) where text occurs, reading
 -- readable regions in chunks that overlap by #text - 1 bytes.
 local function search(from, to, text, visit)
@@ -527,6 +539,7 @@ local function search(from, to, text, visit)
                         visit(chunk_at + found - 1)
                         i = found + 1
                     end
+                    pace(size)
                     if chunk_at + size >= stop then break end
                     chunk_at = chunk_at + size - (#text - 1)
                 end
@@ -539,7 +552,16 @@ end
 ------------------------------------------------------------------------------------
 -- game.dll: its sections, the booster check and the booster name table.
 
-local game = nil -- {base, sections, check, ids, names, count}
+local game = nil -- {check, ids, names, count, keep}
+
+-- The sections that hold code (or not), or every section when none is marked so.
+local function sections_holding(sections, code)
+    local out = {}
+    for _, range in ipairs(sections) do
+        if range[3] == code then out[#out + 1] = range end
+    end
+    return #out > 0 and out or sections
+end
 
 local function module_base()
     if test and test.base then return test.base end
@@ -548,7 +570,7 @@ local function module_base()
     return tonumber(ffi.cast('uintptr_t', handle))
 end
 
--- Section ranges from the PE headers in memory.
+-- Section ranges from the PE headers in memory: {from, to, holds code}.
 local function sections_of(base)
     local nt = base + u32(base + 0x3C)
     need(read(nt, 4) == 'PE\0\0', 'game.dll has no PE header')
@@ -559,8 +581,8 @@ local function sections_of(base)
     local table_at, out = nt + 24 + optional_size, {}
     for i = 0, count - 1 do
         local entry = read(table_at + i * 40, 40)
-        local size, rva = le(entry, 8, 4), le(entry, 12, 4)
-        if size > 0 then out[#out + 1] = {base + rva, base + rva + size} end
+        local size, rva, flags = le(entry, 8, 4), le(entry, 12, 4), le(entry, 36, 4)
+        if size > 0 then out[#out + 1] = {base + rva, base + rva + size, flags % 0x40000000 >= 0x20000000} end
     end
     return out
 end
@@ -568,16 +590,21 @@ end
 local function find_check(sections)
     local pattern = parse_pattern(CHECK_PATTERN)
     local hits, seen = {}, {}
-    for _, range in ipairs(sections) do
-        search(range[1], range[2], pattern.anchor, function(found)
-            local start = found - pattern.at
-            if not seen[start] and can(start, #pattern.bytes, READABLE) then
-                seen[start] = true
-                local text = read(start, #pattern.bytes)
-                if pattern_matches(pattern, text) then hits[#hits + 1] = {start, text} end
-            end
-        end)
+    local function look(ranges)
+        for _, range in ipairs(ranges) do
+            search(range[1], range[2], pattern.anchor, function(found)
+                local start = found - pattern.at
+                if not seen[start] and can(start, #pattern.bytes, READABLE) then
+                    seen[start] = true
+                    local text = read(start, #pattern.bytes)
+                    if pattern_matches(pattern, text) then hits[#hits + 1] = {start, text} end
+                end
+            end)
+        end
     end
+    local code = sections_holding(sections, true)
+    look(code)
+    if #hits == 0 and code ~= sections then look(sections) end
     need(#hits == 1, 'booster check found ' .. #hits .. ' times, nothing written')
     local check = decode_check(hits[1][2], hits[1][1])
     need(sane_check(check), 'booster check offsets look wrong, nothing written')
@@ -612,21 +639,27 @@ local function table_at(slot)
 end
 
 local function find_names(sections)
-    local strings, found = {}, {}
-    for _, range in ipairs(sections) do
-        search(range[1], range[2], NAME_ANCHOR .. '\0', function(at) strings[#strings + 1] = at end)
-    end
-    for _, string_at in ipairs(strings) do
-        local pointer = ffi.string(ffi.new('uint64_t[1]', string_at), 8)
-        for _, range in ipairs(sections) do
-            search(range[1], range[2], pointer, function(slot)
-                if slot % 8 == 0 then
-                    local ids, count = table_at(slot)
-                    if ids then found[#found + 1] = {ids, count} end
-                end
-            end)
+    local found = {}
+    local function look(ranges)
+        local strings = {}
+        for _, range in ipairs(ranges) do
+            search(range[1], range[2], NAME_ANCHOR .. '\0', function(at) strings[#strings + 1] = at end)
+        end
+        for _, string_at in ipairs(strings) do
+            local pointer = ffi.string(ffi.new('uint64_t[1]', string_at), 8)
+            for _, range in ipairs(ranges) do
+                search(range[1], range[2], pointer, function(slot)
+                    if slot % 8 == 0 then
+                        local ids, count = table_at(slot)
+                        if ids then found[#found + 1] = {ids, count} end
+                    end
+                end)
+            end
         end
     end
+    local data = sections_holding(sections, false)
+    look(data)
+    if #found == 0 and data ~= sections then look(sections) end
     need(#found >= 1, 'booster name table not found, nothing written')
     local ids, count = found[1][1], found[1][2]
     for _, other in ipairs(found) do
@@ -646,11 +679,12 @@ local function find_game()
     local sections = sections_of(base)
     local check = find_check(sections)
     local ids, count = find_names(sections)
-    local names = {}
+    local names, keep = {}, {}
     for name, index in pairs(ids) do names[index] = name end
+    for _, name in ipairs(HOST_DECIDED) do keep[ids[name]] = true end
     log(string.format('ready: booster check found, %d boosters in the game, %d squad slot bytes apart',
         count - 1, check.stride))
-    return {base = base, check = check, ids = ids, names = names, count = count}
+    return {check = check, ids = ids, names = names, count = count, keep = keep}
 end
 
 ------------------------------------------------------------------------------------
@@ -701,10 +735,9 @@ local function step()
         if squad[i] ~= slot_memo.wrote[i] then slot_memo.own[i] = squad[i] end
         own[i] = slot_memo.own[i]
     end
-    local want, keep = {}, {}
+    local want = {}
     for i, name in ipairs(picks) do want[i] = game.ids[name] end
-    for _, name in ipairs(HOST_DECIDED) do keep[game.ids[name]] = true end
-    local target, active, kept = plan(want, own, keep)
+    local target, active, kept = plan(want, own, game.keep)
     local text = 'active: ' .. (#active == 0 and 'none' or names_of(active)) .. ' (' .. players .. ' players)'
         .. (#kept > 0 and (', kept for the host: ' .. names_of(kept)) or '')
         .. (#granted > 0 and (', granted by the game: ' .. names_of(granted)) or '')
@@ -733,35 +766,58 @@ end
 -- Update hook.
 
 local stopped, next_check = false, 0
+local finder -- the coroutine looking for the booster check and name table
 
 local function now()
     if test and test.clock then return test.clock() end
     return tonumber(bind_windows().k.pb_GetTickCount64())
 end
 
+local function stop(err)
+    stopped = true
+    log('stopped: ' .. tostring(err))
+end
+
+local function search_game()
+    game = find_game()
+end
+
+-- A little more of the search each frame, until the game is found.
+local function find_more()
+    finder = finder or coroutine.create(search_game)
+    finding = true
+    local ok, err = coroutine.resume(finder)
+    finding = false
+    if not ok then error(err, 0) end
+end
+
+-- Every frame. Frames with nothing due return after a clock read and a few compares.
 local function tick()
-    if not menu.reported then
-        menu.reported = true
-        log('Mod Options Menu: ' .. state.menu_start)
-    end
-    if not menu.api and not menu.given_up then start_menu() end
     if menu.api and #menu.edits > 0 then apply_edits() end
-    if stopped then return end
-    local ok, err = pcall(function()
-        local time = now()
-        if time < next_check then return end
+    local time = now()
+    local due = time >= next_check
+    if due then
         next_check = time + CHECK_EVERY
+        if not menu.reported then
+            menu.reported = true
+            log('Mod Options Menu: ' .. state.menu_start)
+        end
+        if not menu.api and not menu.given_up then start_menu() end
         if not menu.api then
             if menu.checks % ORDER_EVERY == 0 then reread_order() end
             menu.checks = menu.checks + 1
         end
-        game = game or find_game()
-        local message = step()
+    end
+    if stopped then return end
+    if not game then
+        local ok, err = pcall(find_more)
+        if not ok then return stop(err) end
+        if not game then return end
+    end
+    if due then
+        local ok, message = pcall(step)
+        if not ok then return stop(message) end
         if message ~= state.status then log(message) end
-    end)
-    if not ok then
-        stopped = true
-        log('stopped: ' .. tostring(err))
     end
 end
 
@@ -773,9 +829,6 @@ end
 local previous = rawget(_G, 'update')
 update = function(...)
     local ok, err = pcall(tick)
-    if not ok and not stopped then
-        stopped = true
-        log('stopped: ' .. tostring(err))
-    end
+    if not ok and not stopped then stop(err) end
     if type(previous) == 'function' then return previous(...) end
 end

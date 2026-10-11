@@ -54,16 +54,18 @@ return mem
 """
 
 
-def image(base, check=CHECK, table=True):
-    out = bytearray(SIZE)
+def image(base, check=CHECK, table=True, flags=True, size=SIZE):
+    """flags: mark the first section as code and the second as data, as game.dll does."""
+    out = bytearray(size)
     out[0:2] = b"MZ"
     struct.pack_into("<I", out, 0x3C, 0x100)
     out[0x100:0x104] = b"PE\0\0"
     struct.pack_into("<HH", out, 0x104, 0x8664, 2)
     struct.pack_into("<H", out, 0x114, 0xF0)
     struct.pack_into("<H", out, 0x118, 0x20B)
-    for i, (rva, size) in enumerate([(0x1000, 0x2000), (0x3000, SIZE - 0x3000)]):
-        struct.pack_into("<II", out, 0x208 + 40 * i + 8, size, rva)
+    for i, (rva, length, kind) in enumerate([(0x1000, 0x2000, 0x60000020), (0x3000, size - 0x3000, 0xC0000040)]):
+        struct.pack_into("<II", out, 0x208 + 40 * i + 8, length, rva)
+        struct.pack_into("<I", out, 0x208 + 40 * i + 36, kind if flags else 0)
 
     code = bytearray(check)
     for at, ends, target in ((0x03, 0x07, MODE_GLOBAL), (0x0A, 0x0E, DSS_GLOBAL), (0x3B, 0x3F, SQUAD_GLOBAL)):
@@ -85,10 +87,10 @@ def image(base, check=CHECK, table=True):
 
 
 class Game:
-    def __init__(self, folder, check=CHECK, table=True):
+    def __init__(self, folder, check=CHECK, table=True, flags=True, size=SIZE):
         self.lua = LuaRuntime()
-        self.mem = self.lua.execute(HARNESS, SIZE, 0x3000, 0x04)
-        self.mem.put(0, image(self.mem.base, check, table))
+        self.mem = self.lua.execute(HARNESS, size, 0x3000, 0x04)
+        self.mem.put(0, image(self.mem.base, check, table, flags, size))
         self.folder = folder
         chunk = self.lua.eval("loadstring")(SOURCE, "=personal_booster")
         assert not isinstance(chunk, tuple), chunk[1]
@@ -218,6 +220,27 @@ def main():
         game.slot(3, ID["UAVRecon"])
         game.update()
         assert game.slots() == [S, E, V]
+
+    # Sections without code/data flags: the search falls back to every section.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+        game = Game(folder, flags=False)
+        game.squad(X)
+        game.update(2)
+        assert game.slots() == [H], game.state.status
+
+    # A large game.dll is searched a little each frame, not in one frame.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+        game = Game(folder, size=0x800000)
+        game.squad(X)
+        frames, ready = 0, False
+        while not ready:
+            game.update()
+            frames += 1
+            ready = any(line.startswith("ready:") for line in game.log())
+            assert frames < 50, game.state.status
+        assert frames >= 4, f"an 8 MB image was searched in {frames} frames"
+        game.update(2)
+        assert game.slots() == [H]
 
     for name, game_args, expected in [
         ("a different check", {"check": CHECK[:0x5A] + b"\x41" + CHECK[0x5B:]},

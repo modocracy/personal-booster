@@ -19,15 +19,17 @@ The game decides whether a booster is active with one small function (Steam buil
 63  mov al, 1 / ret          ; active
 ```
 
-`src/personal_booster.lua` finds it in `game.dll` by its code pattern (`CHECK_PATTERN`; `??` marks bytes a game build may change), searching every section listed in the PE headers in memory. It requires exactly one match. From the matched bytes it reads the three rip-relative globals and the squad offsets: the player count offset, the slots offset and the slot stride. The offsets are checked for plausibility before use.
+`src/personal_booster.lua` finds it in `game.dll` by its code pattern (`CHECK_PATTERN`; `??` marks bytes a game build may change), searching the sections the PE headers in memory mark as code, and every section if none matches there. It requires exactly one match.
+
+The search runs in a coroutine that hands the frame back after every `FRAME_BYTES` (2 MB) read, so it is spread over frames instead of stalling one; checks start once it is done. From the matched bytes it reads the three rip-relative globals and the squad offsets: the player count offset, the slots offset and the slot stride. The offsets are checked for plausibility before use.
 
 ### The booster name table
 
-Booster ids are indexes into a table of string pointers that starts at `None` and ends at `Count`. The mod finds the string `HellpodSpaceOptimization`, then every 8-byte pointer to it, and from each walks back to `None` and forward to `Count`. Every table found must agree and must hold all 18 boosters the mod offers.
+Booster ids are indexes into a table of string pointers that starts at `None` and ends at `Count`. The mod finds the string `HellpodSpaceOptimization`, then every 8-byte pointer to it (in the sections not marked as code, and in every section if that finds nothing), and from each walks back to `None` and forward to `Count`. Every table found must agree and must hold all 18 boosters the mod offers.
 
 ### The memory step
 
-Every 2 seconds (`CHECK_EVERY`) the mod reads the squad record. A new record is read twice before anything is written. With N players (1-4), a slot the game filled with a host-decided booster (`HOST_DECIDED`) stays as it is; the other slots get the picks in order, skipping picks a kept slot already holds, and slots past the picks are emptied.
+Frames with no check due only read the clock and compare. Every 2 seconds (`CHECK_EVERY`) the mod reads the squad record. A new record is read twice before anything is written. With N players (1-4), a slot the game filled with a host-decided booster (`HOST_DECIDED`) stays as it is; the other slots get the picks in order, skipping picks a kept slot already holds, and slots past the picks are emptied.
 
 To tell the game's values from its own, the mod remembers per slot what it last wrote: a slot holding anything else was filled by the game, and that value is what `plan` sees. The memory starts afresh with each new squad record. When a slot differs, the mod writes the slots, reads them back, and logs the write. The DSS list is only read, for the log. Every read and write is checked against `VirtualQuery` first, and any mismatch stops the mod before it writes.
 

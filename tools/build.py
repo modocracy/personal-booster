@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import patch  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 GUID = "a4402f3c-f59a-4ea6-bade-151439092102"
 ARCHIVE = "9ba626afa44a3aa3.patch_0"
 MOD_RESOURCE = "mods/modocracy/personal_booster"
