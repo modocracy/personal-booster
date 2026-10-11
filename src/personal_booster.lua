@@ -27,6 +27,11 @@ local FOLDER_NAME = 'PersonalBooster'
 local MAX_PICKS = 4
 -- Picked until the player picks, and when nothing else is saved.
 local DEFAULT_PICKS = {'HellpodSpaceOptimization', 'Vitality', 'Stamina', 'MuscleEnhancement'}
+-- Boosters the host's game applies to the whole squad (mission budget, encounters,
+-- extraction, samples). A slot the game filled with one of these is left alone, so
+-- a teammate's pick still works for everyone when this player hosts.
+local HOST_DECIDED = {'IncreasedReinforcementBudget', 'FlexibleReinforcementBudget', 'LocalizationConfusion',
+                      'FastExtraction', 'DoubleSampleChance', 'BigEnemiesDropSamples'}
 local CHECK_EVERY = 2000 -- milliseconds between memory checks
 local ORDER_EVERY = 5 -- memory checks between rereads of the order file without the menu
 
@@ -51,12 +56,12 @@ local BOOSTERS = {
     {'CombatDrugs', 'Experimental Infusion', '실험용 주입', 'Stims apply a stronger effect.', '주사기 효과가 강해집니다.'},
     {'FieryDrop', 'Firebomb Hellpods', '파이어밤 헬포드', 'Fire explosion when a hellpod lands.',
      '헬포드가 착지할 때 화염 폭발이 일어납니다.'},
-    {'DoubleSampleChance', 'Sample Scanner', '샘플 스캐너', 'A chance that a picked-up sample counts twice.',
-     '주운 샘플이 두 개로 계산될 확률이 생깁니다.'},
+    {'DoubleSampleChance', 'Sample Scanner', '샘플 스캐너', 'A chance that a picked-up sample counts twice. Decided by the host.',
+     '주운 샘플이 두 개로 계산될 확률이 생깁니다. 방장이 판정합니다.'},
     {'DeathMarch', 'Dead Sprint', '데드 스프린트', 'Sprint with no stamina, at the cost of health.',
      '스태미나가 없어도 체력을 써서 달릴 수 있습니다.'},
-    {'BigEnemiesDropSamples', 'Sample Extricator', '샘플 추출기', 'Heavy enemies drop samples.',
-     '대형 적이 샘플을 떨어뜨립니다.'},
+    {'BigEnemiesDropSamples', 'Sample Extricator', '샘플 추출기', 'Heavy enemies drop samples. Decided by the host.',
+     '대형 적이 샘플을 떨어뜨립니다. 방장이 판정합니다.'},
     {'ShockPods', 'Stun Pods', '스턴 포드', 'Stun when a hellpod lands.', '헬포드가 착지할 때 주변을 기절시킵니다.'},
     {'SmokePods', 'Concealed Insertion', '은밀 강하', 'Smoke when a hellpod lands.', '헬포드가 착지할 때 연막이 퍼집니다.'},
     {'FireExtinguish', 'Integrated Extinguishers', '통합 소화기', 'Burning ends faster.', '몸에 붙은 불이 더 빨리 꺼집니다.'},
@@ -96,16 +101,31 @@ local function need(value, message)
     return value
 end
 
--- want: picked booster ids in order. squad: each player's equipped booster id.
--- Returns what each squad slot should hold (pick i in slot i, empty past the
--- picks) and the picks that are active.
-local function plan(want, squad)
-    local target, active = {}, {}
-    for i = 1, #squad do
-        target[i] = want[i] or 0
-        if want[i] then active[#active + 1] = want[i] end
+-- want: picked booster ids in order. own: the id the game put in each squad slot.
+-- keep: ids decided by the host (id -> true). Slots the game filled with a kept id
+-- stay as they are; the other slots get the picks in order, skipping picks a kept
+-- slot already holds, and are emptied past the picks. Returns the slots, the picks
+-- written and the ids kept.
+local function plan(want, own, keep)
+    local target, active, kept, taken = {}, {}, {}, {}
+    for i = 1, #own do
+        if keep[own[i]] and not taken[own[i]] then
+            target[i], taken[own[i]] = own[i], true
+            kept[#kept + 1] = own[i]
+        end
     end
-    return target, active
+    local next_pick = 1
+    for i = 1, #own do
+        if target[i] == nil then
+            while want[next_pick] and taken[want[next_pick]] do next_pick = next_pick + 1 end
+            local id = want[next_pick]
+            target[i] = id or 0
+            if id then
+                active[#active + 1], taken[id], next_pick = id, true, next_pick + 1
+            end
+        end
+    end
+    return target, active, kept
 end
 
 local function differs(have, want)
@@ -189,7 +209,7 @@ end
 if rawget(_G, 'PersonalBooster') then return end
 local picks = {}
 for i, name in ipairs(DEFAULT_PICKS) do picks[i] = name end
-local state = {version = '1.1.1', status = 'starting', picks = picks, plan = plan, differs = differs,
+local state = {version = '1.2.0', status = 'starting', picks = picks, plan = plan, differs = differs,
                placed = placed, parse_pattern = parse_pattern, decode_check = decode_check}
 _G['PersonalBooster'] = state
 
@@ -638,6 +658,9 @@ end
 
 local squad_seen
 local writes = 0
+-- Per slot of the current squad record: the id this mod last wrote, and the id the
+-- game last put there (any value other than this mod's own write).
+local slot_memo = {wrote = {}, own = {}}
 
 local function names_of(ids)
     local out = {}
@@ -652,6 +675,7 @@ local function step()
     if squad_at == 0 or squad_at % 8 ~= 0 then return 'waiting for the squad' end
     if squad_at ~= squad_seen then
         squad_seen = squad_at
+        slot_memo = {wrote = {}, own = {}}
         return 'squad found, checking again before writing'
     end
     if not can(squad_at + check.players, 4, READABLE) then return 'waiting for the squad' end
@@ -672,15 +696,25 @@ local function step()
         for i = 1, math.min(n, check.dss_count / 8) do granted[i] = u32(dss_at + 8 * (i - 1)) end
     end
 
-    local want = {}
+    local own = {}
+    for i = 1, players do
+        if squad[i] ~= slot_memo.wrote[i] then slot_memo.own[i] = squad[i] end
+        own[i] = slot_memo.own[i]
+    end
+    local want, keep = {}, {}
     for i, name in ipairs(picks) do want[i] = game.ids[name] end
-    local target, active = plan(want, squad)
+    for _, name in ipairs(HOST_DECIDED) do keep[game.ids[name]] = true end
+    local target, active, kept = plan(want, own, keep)
     local text = 'active: ' .. (#active == 0 and 'none' or names_of(active)) .. ' (' .. players .. ' players)'
+        .. (#kept > 0 and (', kept for the host: ' .. names_of(kept)) or '')
         .. (#granted > 0 and (', granted by the game: ' .. names_of(granted)) or '')
     if not differs(squad, target) then return text end
 
     if not can(slots, check.stride * (players - 1) + 4, WRITABLE) then return 'squad slots are read-only' end
-    for i = 1, players do write_u32(slots + check.stride * (i - 1), target[i]) end
+    for i = 1, players do
+        write_u32(slots + check.stride * (i - 1), target[i])
+        slot_memo.wrote[i] = target[i]
+    end
     local after = {}
     for i = 1, players do after[i] = u32(slots + check.stride * (i - 1)) end
     need(not differs(after, target), 'write check failed')

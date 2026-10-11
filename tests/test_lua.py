@@ -38,17 +38,29 @@ def main():
     lua, state = load()
     table = lua.table_from
 
+    E, R = 30, 31  # two host-decided boosters (say Expert Extraction Pilot and a reinforcement booster)
+    keep = table({E: True, R: True})
+
     def plan(squad, want=WANT):
-        target, active = state.plan(table(want), table(squad))
-        return as_list(target), as_list(active), state.differs(table(squad), target)
+        target, active, kept = state.plan(table(want), table(squad), keep)
+        return as_list(target), as_list(active), as_list(kept), state.differs(table(squad), target)
 
     # One pick per player, from the first; empty slots past the picks.
-    assert plan([9]) == ([H], [H], True)
-    assert plan([9, 4]) == ([H, V], [H, V], True)
-    assert plan([9, 4, 5, 6]) == (WANT, WANT, True)
-    assert plan([9, 4, 5, 6], [H, V]) == ([H, V, 0, 0], [H, V], True)
-    assert plan([9], []) == ([0], [], True)
-    assert plan([H, V])[2] is False, "nothing to write once the slots match"
+    assert plan([9]) == ([H], [H], [], True)
+    assert plan([9, 4]) == ([H, V], [H, V], [], True)
+    assert plan([9, 4, 5, 6]) == (WANT, WANT, [], True)
+    assert plan([9, 4, 5, 6], [H, V]) == ([H, V, 0, 0], [H, V], [], True)
+    assert plan([9], []) == ([0], [], [], True)
+    assert plan([H, V])[3] is False, "nothing to write once the slots match"
+
+    # A slot the game filled with a host-decided booster stays; the picks fill the others.
+    assert plan([9, E]) == ([H, E], [H], [E], True)
+    assert plan([E, 4, R, 6]) == ([E, H, R, V], [H, V], [E, R], True)
+    assert plan([E, E]) == ([E, H], [H], [E], True), "a repeated kept booster is kept once"
+    # A pick a kept slot already holds is skipped, not written twice.
+    assert plan([9, E, 5], [E, H, V]) == ([H, E, V], [H, V], [E], True)
+    # Host-decided picks are still written into free slots.
+    assert plan([9, 4], [E, H]) == ([E, H], [E, H], [], True)
 
     # Patterns: ?? bytes are free, the longest fixed run is the search anchor.
     pattern = state.parse_pattern("48 ?? 0D 33 C9 44 ?? 01")

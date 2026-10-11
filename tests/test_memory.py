@@ -190,6 +190,35 @@ def main():
         game.update()
         assert game.state.status == "stopped: Booster Buster is also installed, disable one of them"
 
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
+        E = ID["FastExtraction"]
+        with open(os.path.join(folder, "PersonalBooster.order"), "w") as f:
+            f.write("FastExtraction\nVitality\n")
+        game = Game(folder)
+        game.squad(X)
+        game.update(2)
+        assert game.slots() == [E], "a host-decided pick is still written into a free slot"
+
+        # Picks change: the slot this mod wrote is not taken for one the game filled.
+        with open(os.path.join(folder, "PersonalBooster.order"), "w") as f:
+            f.write("Stamina\nVitality\n")
+        game.update(5)
+        assert game.slots() == [S]
+
+        # A teammate joins with Expert Extraction Pilot: their slot stays, the picks fill the rest.
+        game.squad(S, E)
+        game.update()
+        assert game.slots() == [S, E]
+        assert game.state.status == "active: Stamina (2 players), kept for the host: FastExtraction"
+        game.squad(S, E, X)
+        game.update()
+        assert game.slots() == [S, E, V]
+
+        # The game puts the teammate's booster back after a write elsewhere: still kept.
+        game.slot(3, ID["UAVRecon"])
+        game.update()
+        assert game.slots() == [S, E, V]
+
     for name, game_args, expected in [
         ("a different check", {"check": CHECK[:0x5A] + b"\x41" + CHECK[0x5B:]},
          "stopped: booster check offsets look wrong, nothing written"),

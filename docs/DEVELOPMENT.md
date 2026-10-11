@@ -27,7 +27,9 @@ Booster ids are indexes into a table of string pointers that starts at `None` an
 
 ### The memory step
 
-Every 2 seconds (`CHECK_EVERY`) the mod reads the squad record. A new record is read twice before anything is written. With N players (1-4), slot i should hold pick i, and slots past the picks are emptied. When a slot differs, the mod writes the slots, reads them back, and logs the write. The DSS list is only read, for the log. Every read and write is checked against `VirtualQuery` first, and any mismatch stops the mod before it writes.
+Every 2 seconds (`CHECK_EVERY`) the mod reads the squad record. A new record is read twice before anything is written. With N players (1-4), a slot the game filled with a host-decided booster (`HOST_DECIDED`) stays as it is; the other slots get the picks in order, skipping picks a kept slot already holds, and slots past the picks are emptied.
+
+To tell the game's values from its own, the mod remembers per slot what it last wrote: a slot holding anything else was filled by the game, and that value is what `plan` sees. The memory starts afresh with each new squad record. When a slot differs, the mod writes the slots, reads them back, and logs the write. The DSS list is only read, for the log. Every read and write is checked against `VirtualQuery` first, and any mismatch stops the mod before it writes.
 
 The pure steps (`plan`, `differs`, `placed`, `parse_pattern`, `decode_check`) are published on the `PersonalBooster` global for the tests.
 

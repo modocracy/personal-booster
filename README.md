@@ -8,6 +8,8 @@ A Helldivers 2 mod that keeps the game's rule of **one booster per player**, but
 
 With N players in the squad, your picks 1 to N are active for you, and the boosters your teammates brought are not. Teammates keep their own boosters on their own PCs. Boosters the game grants through the DSS are left as they are.
 
+Boosters the host's game applies to the whole squad are never replaced: Increased Reinforcement Budget, Flexible Reinforcement Budget, Localization Confusion, Expert Extraction Pilot, Sample Scanner and Sample Extricator. If a teammate brings one, its slot is left as it is, so it keeps working for everyone when you host, and your picks fill the other slots.
+
 | Squad | Your boosters |
 |---|---|
 | Solo | pick 1 |
@@ -51,7 +53,7 @@ Options > MODS > PERSONAL BOOSTER.
 - With the menu, the file is read when the game starts. Use the menu to change picks while playing.
 - Without the menu (if it could not start), the file is the picker: the mod rereads it about every 10 seconds.
 
-Unknown names and repeats are skipped, and only the first 4 are used. The first time, the picks are Hellpod Space Optimization, Vitality, Stamina and Muscle Enhancement.
+Unknown names and repeats are skipped, and only the first 4 are used. A pick a teammate already brings as a host-decided booster is skipped, and the next pick takes the slot. The first time, the picks are Hellpod Space Optimization, Vitality, Stamina and Muscle Enhancement.
 
 | File name | Booster |
 |---|---|
@@ -93,7 +95,7 @@ With earlier versions that write the same squad slots (2026-10-11):
 - A booster written into a teammate's slot takes effect for you.
 - Firebomb Hellpods sets fire only where your own hellpod lands, not your teammates'. The fire damages enemies in solo play, and in someone else's lobby it also burns teammates, so it exists in their game too.
 
-Not tested: boosters the host decides for the whole mission (reinforcement budget, Localization Confusion, extraction, samples) are expected to follow the host's game, so your picks of those may only work when you host.
+Not tested: the host-decided boosters listed above are expected to follow the host's game. Your picks of those likely work only when you host, and a teammate's keeps working for the squad because its slot is left alone.
 
 ## Log
 
@@ -108,7 +110,7 @@ Not tested: boosters the host decides for the whole mission (reinforcement budge
 | `picked n/4: ...` | Picks changed |
 | `ready: booster check found, ...` | The booster check and name table were found |
 | `waiting for the squad` / `squad found, ...` | Loading; normal on the ship and between missions |
-| `active: ... (N players)` | Your boosters now active, and any the game grants |
+| `active: ... (N players)` | Your boosters now active, host-decided boosters kept in teammates' slots (`kept for the host`), and any the game grants |
 | `write #N: ...` | Slots written, with what they held before |
 | `stopped: ...` | A safety check stopped the mod, with the reason |
 
